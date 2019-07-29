@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#define modulo 100007
+#define modulo 10007
+#define modulo_rel 107
 
 /*
     PROGETTO DI API
@@ -128,7 +129,7 @@ typedef struct container_floor_ranking
 typedef struct docker_ranking
 {
     char *rel_name;
-    struct info_relation_menager *hashtable[modulo];
+    struct info_relation_menager *hashtable[modulo_rel];
     struct container_floor_ranking *container_floor_ranking_p;
     struct docker_ranking *next_p;
     struct docker_ranking *prev_p;
@@ -289,7 +290,7 @@ void delete_relation_menager_fromDocker(info_relation_menager_t *target_to_delet
         char *to_hash = malloc(sizeof(char) * (strlen(target_to_delete->info_relation_p->src) + 1 + strlen(target_to_delete->info_relation_p->dest)));
         strcpy(to_hash, target_to_delete->info_relation_p->src);
         strcat(to_hash, target_to_delete->info_relation_p->dest);
-        int index = hash(to_hash) % modulo;
+        int index = hash(to_hash) % modulo_rel;
         target_docker->hashtable[index] = target_to_delete->next_p;
         if (target_to_delete->next_p != NULL)
             (target_to_delete->next_p)->prev_p = NULL;
@@ -609,7 +610,7 @@ docker_ranking_t *sys_create_ranking_node(ranking_node_t *rn_to_add, char *rel_s
         (to_pass->container_floor_ranking_p)->docker_ranking_p = to_pass;
         (to_pass->container_floor_ranking_p)->max_floor_ranking_p = NULL;
         (to_pass->container_floor_ranking_p)->min_floor_ranking_p = NULL;
-        for (int i = 0; i < modulo; i++)
+        for (int i = 0; i < modulo_rel; i++)
             to_pass->hashtable[i] = NULL;
         to_res = to_pass;
     }
@@ -863,7 +864,7 @@ docker_ranking_t *delete_relation(char *src_str, char *dest_str, char *rel_str, 
     strcpy(all_in_str, src_str);
     strcat(all_in_str, dest_str);
     //calcolo hashvalue
-    int value = hash(all_in_str) % modulo;
+    int value = hash(all_in_str) % modulo_rel;
     docker_ranking_t *docker_update = docker_ranking_head_p;
     docker_ranking_head_p = docker_search(rel_str, docker_ranking_head_p);
     info_relation_menager_t *temp_iem = docker_ranking_head_p->hashtable[value];
@@ -882,25 +883,27 @@ docker_ranking_t *delete_relation(char *src_str, char *dest_str, char *rel_str, 
             delete_info_relation(temp_r);
             //Gestione ranking node per il dest
             ranking_node_scala(temp_r->dest_container_relation_p, 0);
-            if ((temp_r->dest_container_relation_p)->in_relation_list_head_p == NULL && (temp_r->dest_container_relation_p)->out_relation_list_head_p == NULL)
-            {
-                //Entità destinazione con container della relazione vuota, va eliminata
-                //Deferenzio il Container relazione
-                if ((temp_r->dest_container_relation_p)->prev_p != NULL)
+            if (temp_r->src_container_relation_p != temp_r->dest_container_relation_p)
+                if ((temp_r->dest_container_relation_p)->in_relation_list_head_p == NULL && (temp_r->dest_container_relation_p)->out_relation_list_head_p == NULL)
                 {
-                    ((temp_r->dest_container_relation_p)->prev_p)->next_p = (temp_r->dest_container_relation_p)->next_p;
-                    if ((temp_r->dest_container_relation_p)->next_p != NULL)
-                        ((temp_r->dest_container_relation_p)->next_p)->prev_p = (temp_r->dest_container_relation_p)->prev_p;
+                    //Entità destinazione con container della relazione vuota, va eliminata
+                    //Deferenzio il Container relazione
+                    if ((temp_r->dest_container_relation_p)->prev_p != NULL)
+                    {
+                        ((temp_r->dest_container_relation_p)->prev_p)->next_p = (temp_r->dest_container_relation_p)->next_p;
+                        if ((temp_r->dest_container_relation_p)->next_p != NULL)
+                            ((temp_r->dest_container_relation_p)->next_p)->prev_p = (temp_r->dest_container_relation_p)->prev_p;
+                    }
+                    else
+                    {
+                        ((temp_r->dest_container_relation_p)->entity_p)->container_relation_head_p = (temp_r->dest_container_relation_p)->next_p;
+                        if ((temp_r->dest_container_relation_p)->next_p != NULL)
+                            ((temp_r->dest_container_relation_p)->next_p)->prev_p = NULL;
+                    }
+                    free((temp_r->dest_container_relation_p)->rel_name);
+                    free(temp_r->dest_container_relation_p);
                 }
-                else
-                {
-                    ((temp_r->dest_container_relation_p)->entity_p)->container_relation_head_p = (temp_r->dest_container_relation_p)->next_p;
-                    if ((temp_r->dest_container_relation_p)->next_p != NULL)
-                        ((temp_r->dest_container_relation_p)->next_p)->prev_p = NULL;
-                }
-                free((temp_r->dest_container_relation_p)->rel_name);
-                free(temp_r->dest_container_relation_p);
-            }
+
             if ((temp_r->src_container_relation_p)->in_relation_list_head_p == NULL && (temp_r->src_container_relation_p)->out_relation_list_head_p == NULL)
             {
                 //Entità sorgente con container della relazione vuota, va eliminata
@@ -920,6 +923,7 @@ docker_ranking_t *delete_relation(char *src_str, char *dest_str, char *rel_str, 
                 free((temp_r->src_container_relation_p)->rel_name);
                 free(temp_r->src_container_relation_p);
             }
+
             //Cancello la relazione
             free(temp_r->src);
             free(temp_r->dest);
@@ -1014,8 +1018,9 @@ docker_ranking_t *add_relation(int relation_hash_value, info_entity_t *src_ie, i
         temp_cr->ranking_node_p = NULL;
         dest_ie->container_relation_head_p = temp_cr;
         dest_cr = temp_cr;
+        if (strcmp(dest_ie->entity_name, src_ie->entity_name) == 0)
+            src_cr = dest_cr;
     }
-    //src_cr = src_ie->container_relation_head_p;
     while (src_cr != NULL)
     {
         if (strcmp(rel_str, src_cr->rel_name) == 0)
@@ -1039,6 +1044,7 @@ docker_ranking_t *add_relation(int relation_hash_value, info_entity_t *src_ie, i
         src_ie->container_relation_head_p = temp_cr;
         src_cr = temp_cr;
     }
+
     if (dest_cr->ranking_node_p == NULL)
     {
         ranking_node_t *rn_to_add = malloc(sizeof(ranking_node_t));
@@ -1048,6 +1054,7 @@ docker_ranking_t *add_relation(int relation_hash_value, info_entity_t *src_ie, i
     }
     else
         ranking_node_scala(dest_cr, 1);
+
     //ho entrambi i container, procedo ad aggiungere la relazione
     ir_to_add->dest_container_relation_p = dest_cr;
     ir_to_add->src_container_relation_p = src_cr;
@@ -1088,13 +1095,14 @@ docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel
     //printf("Traking sys_call_add_relation\n");
     scanf("%s %s %s", src_str, dest_str, rel_str);
     docker_ranking_t *docker_update = docker_ranking_head_p;
+
     char *all_in_str = malloc(sizeof(char) * (strlen(src_str) + strlen(dest_str) + 1));
     strcpy(all_in_str, src_str);
     strcat(all_in_str, dest_str);
     //calcolo hashvalue
     int src_hash_value = hash(src_str) % modulo;
     int dest_hash_value = hash(dest_str) % modulo;
-    int relation_hash_value = hash(all_in_str) % modulo;
+    int relation_hash_value = hash(all_in_str) % modulo_rel;
     info_entity_menager_t *src_iem = hashtable[src_hash_value], *dest_iem = hashtable[dest_hash_value];
     //verifico esistenza src
     while (src_iem != NULL)
@@ -1130,7 +1138,7 @@ docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel
                 //todo magari non cerco in hash relazioni ma gia nel primo nodo tramite i container
                 while (temp_iem != NULL)
                 {
-                    if (strcmp(src_str, temp_iem->info_relation_p->src) == 0 && strcmp(dest_str, temp_iem->info_relation_p->dest) == 0)
+                    if (strcmp(src_str, (temp_iem->info_relation_p)->src) == 0 && strcmp(dest_str, (temp_iem->info_relation_p)->dest) == 0)
                         break;
                     temp_iem = temp_iem->next_p;
                 }
@@ -1222,49 +1230,22 @@ int str_compare_order(char *str1, char *str2)
 }
 void docker_max_to_sort(container_floor_ranking_t *docker_to_sort)
 {
-    ranking_node_t *head_rn = docker_to_sort->max_floor_ranking_p->ranking_node_head_p, *compare_rn, *next_rn;
-    docker_to_sort->max_floor_ranking_p->flag = 's';
-    while (head_rn != NULL)
+    ranking_node_t *head_rn = (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p, *compare_rn, *next_rn;
+    (docker_to_sort->max_floor_ranking_p)->flag = 's';
+    int change = 1;
+    while (change != 0)
     {
-        next_rn = head_rn->next_p;
-        compare_rn = next_rn;
-        if (compare_rn != NULL)
+        head_rn = (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p;
+        change = 0;
+        while (head_rn != NULL)
         {
-            while (compare_rn->next_p != NULL && str_compare_order(head_rn->entity_p->entity_name, compare_rn->entity_p->entity_name) == 1)
-                compare_rn = compare_rn->next_p;
-            if (compare_rn->next_p != NULL)
+            next_rn = head_rn->next_p;
+            compare_rn = next_rn;
+            if (compare_rn != NULL)
             {
-                if (head_rn->next_p != compare_rn)
-                {
-                    //Deferenzio il rn-node
-                    (head_rn->next_p)->prev_p = head_rn->prev_p;
-                    if (head_rn->prev_p != NULL)
-                        (head_rn->prev_p)->next_p = head_rn->next_p;
-                    else
-                        docker_to_sort->max_floor_ranking_p->ranking_node_head_p = head_rn->next_p;
-                    //referenzio il rn-node
-                    (compare_rn->prev_p)->next_p = head_rn;
-                    head_rn->prev_p = compare_rn->prev_p;
-                    compare_rn->prev_p = head_rn;
-                    head_rn->next_p = compare_rn;
-                }
-            }
-            else
-            {
-                if (str_compare_order(head_rn->entity_p->entity_name, compare_rn->entity_p->entity_name) == 1)
-                {
-                    //Deferenzio il rn-node
-                    (head_rn->next_p)->prev_p = head_rn->prev_p;
-                    if (head_rn->prev_p != NULL)
-                        (head_rn->prev_p)->next_p = head_rn->next_p;
-                    else
-                        docker_to_sort->max_floor_ranking_p->ranking_node_head_p = head_rn->next_p;
-                    //referenzio il rn-node
-                    head_rn->next_p = NULL;
-                    head_rn->prev_p = compare_rn;
-                    compare_rn->next_p = head_rn;
-                }
-                else
+                while (compare_rn->next_p != NULL && str_compare_order((head_rn->entity_p)->entity_name, (compare_rn->entity_p)->entity_name) == 1)
+                    compare_rn = compare_rn->next_p;
+                if (compare_rn->next_p != NULL)
                 {
                     if (head_rn->next_p != compare_rn)
                     {
@@ -1273,17 +1254,53 @@ void docker_max_to_sort(container_floor_ranking_t *docker_to_sort)
                         if (head_rn->prev_p != NULL)
                             (head_rn->prev_p)->next_p = head_rn->next_p;
                         else
-                            docker_to_sort->max_floor_ranking_p->ranking_node_head_p = head_rn->next_p;
+                            (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
                         //referenzio il rn-node
                         (compare_rn->prev_p)->next_p = head_rn;
                         head_rn->prev_p = compare_rn->prev_p;
                         compare_rn->prev_p = head_rn;
                         head_rn->next_p = compare_rn;
+                        change++;
+                    }
+                }
+                else
+                {
+                    if (str_compare_order((head_rn->entity_p)->entity_name, (compare_rn->entity_p)->entity_name) == 1)
+                    {
+                        //Deferenzio il rn-node
+                        (head_rn->next_p)->prev_p = head_rn->prev_p;
+                        if (head_rn->prev_p != NULL)
+                            (head_rn->prev_p)->next_p = head_rn->next_p;
+                        else
+                            (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
+                        //referenzio il rn-node
+                        head_rn->next_p = NULL;
+                        head_rn->prev_p = compare_rn;
+                        compare_rn->next_p = head_rn;
+                        change++;
+                    }
+                    else
+                    {
+                        if (head_rn->next_p != compare_rn)
+                        {
+                            //Deferenzio il rn-node
+                            (head_rn->next_p)->prev_p = head_rn->prev_p;
+                            if (head_rn->prev_p != NULL)
+                                (head_rn->prev_p)->next_p = head_rn->next_p;
+                            else
+                                (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
+                            //referenzio il rn-node
+                            (compare_rn->prev_p)->next_p = head_rn;
+                            head_rn->prev_p = compare_rn->prev_p;
+                            compare_rn->prev_p = head_rn;
+                            head_rn->next_p = compare_rn;
+                            change++;
+                        }
                     }
                 }
             }
+            head_rn = next_rn;
         }
-        head_rn = next_rn;
     }
 }
 docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
@@ -1295,54 +1312,27 @@ docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
     if (sort_docker != NULL)
     {
         //oridino i docker
-        while (sort_docker != NULL)
+        int change = 1;
+        while (change != 0)
         {
-
-            temp_docker = sort_docker->next_p;
-            trapass_docker = temp_docker;
-            if (temp_docker != NULL)
+            sort_docker = docker_head_to_res;
+            change = 0;
+            while (sort_docker != NULL)
             {
-                //se vi è un next e che è minore del prev vado avanti fino a quando una delle due è falsa
-                while (temp_docker->next_p != NULL && str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
-                    temp_docker = temp_docker->next_p;
-                if (temp_docker->next_p != NULL)
+
+                temp_docker = sort_docker->next_p;
+                trapass_docker = temp_docker;
+                if (temp_docker != NULL)
                 {
-                    //docker target trovato
-                    if (temp_docker != sort_docker->next_p)
+                    //se vi è un next e che è minore del prev vado avanti fino a quando una delle due è falsa
+                    while (temp_docker->next_p != NULL && str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
+                        temp_docker = temp_docker->next_p;
+                    if (temp_docker->next_p != NULL)
                     {
-                        //deferenzio il docker da spostare
-                        (sort_docker->next_p)->prev_p = sort_docker->prev_p;
-                        if (sort_docker->prev_p != NULL)
-                            (sort_docker->prev_p)->next_p = sort_docker->next_p;
-                        else
-                            docker_head_to_res = sort_docker->next_p;
-                        //ri-referenzio il docker
-                        (temp_docker->prev_p)->next_p = sort_docker;
-                        sort_docker->prev_p = temp_docker->prev_p;
-                        temp_docker->prev_p = sort_docker;
-                        sort_docker->next_p = temp_docker;
-                    }
-                }
-                else
-                {
-                    //va fatto l'ultimo confronto
-                    if (str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
-                    {
-                        //allora diventa ultimo
-                        (sort_docker->next_p)->prev_p = sort_docker->prev_p;
-                        if (sort_docker->prev_p != NULL)
-                            (sort_docker->prev_p)->next_p = sort_docker->next_p;
-                        else
-                            docker_head_to_res = sort_docker->next_p;
-                        sort_docker->prev_p = temp_docker;
-                        sort_docker->next_p = NULL;
-                        temp_docker->next_p = sort_docker;
-                    }
-                    else
-                    {
-                        //sposto normalmente
+                        //docker target trovato
                         if (temp_docker != sort_docker->next_p)
                         {
+
                             //deferenzio il docker da spostare
                             (sort_docker->next_p)->prev_p = sort_docker->prev_p;
                             if (sort_docker->prev_p != NULL)
@@ -1354,11 +1344,48 @@ docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
                             sort_docker->prev_p = temp_docker->prev_p;
                             temp_docker->prev_p = sort_docker;
                             sort_docker->next_p = temp_docker;
+                            change++;
+                        }
+                    }
+                    else
+                    {
+                        //va fatto l'ultimo confronto
+                        if (str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
+                        {
+                            //allora diventa ultimo
+                            (sort_docker->next_p)->prev_p = sort_docker->prev_p;
+                            if (sort_docker->prev_p != NULL)
+                                (sort_docker->prev_p)->next_p = sort_docker->next_p;
+                            else
+                                docker_head_to_res = sort_docker->next_p;
+                            sort_docker->prev_p = temp_docker;
+                            sort_docker->next_p = NULL;
+                            temp_docker->next_p = sort_docker;
+                            change++;
+                        }
+                        else
+                        {
+                            //sposto normalmente
+                            if (temp_docker != sort_docker->next_p)
+                            {
+                                //deferenzio il docker da spostare
+                                (sort_docker->next_p)->prev_p = sort_docker->prev_p;
+                                if (sort_docker->prev_p != NULL)
+                                    (sort_docker->prev_p)->next_p = sort_docker->next_p;
+                                else
+                                    docker_head_to_res = sort_docker->next_p;
+                                //ri-referenzio il docker
+                                (temp_docker->prev_p)->next_p = sort_docker;
+                                sort_docker->prev_p = temp_docker->prev_p;
+                                temp_docker->prev_p = sort_docker;
+                                sort_docker->next_p = temp_docker;
+                                change++;
+                            }
                         }
                     }
                 }
+                sort_docker = trapass_docker;
             }
-            sort_docker = trapass_docker;
         }
         //ora ho i Docker ordinati
 
@@ -1368,16 +1395,18 @@ docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
         while (temp_docker != NULL)
         {
             printf("%s", temp_docker->rel_name);
-            if ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p->flag == 'd')
+            if (((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->flag == 'd')
                 docker_max_to_sort(temp_docker->container_floor_ranking_p);
             to_print_node = ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->ranking_node_head_p;
             while (to_print_node != NULL)
             {
-                printf(" %s", to_print_node->entity_p->entity_name);
+                printf(" %s", (to_print_node->entity_p)->entity_name);
                 to_print_node = to_print_node->next_p;
             }
-            printf(" %lu; ", ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->count);
+            printf(" %lu;", ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->count);
             temp_docker = temp_docker->next_p;
+            if (temp_docker != NULL)
+                printf(" ");
         }
         printf("\n");
     }
@@ -1393,6 +1422,7 @@ int main()
     info_entity_menager_t *entity_hashtable[modulo] = {NULL};
     docker_ranking_t *docker_head = NULL;
     char input[256] = "addrel", input2[256], input3[256];
+    int i = 0;
     while (input[0] != 'e')
     {
         scanf("%s", input);
@@ -1421,12 +1451,7 @@ int main()
                 //sys_call_print_docker(docker_head);
                 //sys_call_print_entity_hashtable(entity_hashtable);
             }
-        }
-        else
-        {
-            //sys_call_print_docker(docker_head);
-            //sys_call_print_entity_hashtable(entity_hashtable);
-            //input[0] = 'd';
+            input[0] = 'r';
         }
     }
 }
