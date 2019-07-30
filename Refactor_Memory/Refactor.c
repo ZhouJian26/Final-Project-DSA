@@ -1308,7 +1308,7 @@ int main()
                     if (input[3] == 'r')
                         docker_head = sys_call_add_relation(input, input2, input3, entity_hashtable, docker_head); // V Refactor 1.0
                     else
-                        sys_call_add_entity(input, entity_hashtable); // V Refactor 1.0 || Logica 1.0
+                        sys_call_add_entity(input, entity_hashtable); // V Refactor 1.0
                 }
                 else
                 {
