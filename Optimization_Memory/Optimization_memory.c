@@ -6,10 +6,64 @@
 /*
     PROGETTO DI API
     NOTA: non esiste il delete di una relazione ma solo di nodi e edge
+
+    ToDo List:
+        - organizzazione info nodi
+        - organizzazione info relazioni(edges)
+    -> info nodi:
+        - salvati in strutture dati, contenenti:
+            - stringa nome, dinamica in base alla lunghezza della stringa
+            - lista di *relazioni container*
+    -> gestione nodi:
+        - salvati in una hashtable, con una struttura dati del tipo:
+            - puntatore a *info nodi*
+            - puntatore al prossimo elemento della hashtable
+    -> relazioni container:
+        - struttura dati, contenente:
+            - tipo relazione stringa
+            - relazioni out(lista di *info relazioni*)
+            - relazioni in(lista di *info relazioni*)
+            - puntatore a *ranking node*
+            - puntatore al prossimo 
+    -> info relazioni:
+        - struttura dati, contentente:
+            - sorgente stringa
+            - next *info relazioni* sorgente
+            - destinazione stringa
+            - next *info relazioni* destinazione
+    -> gestione edge:
+        - salvati in una hashtable, una per tipo relazione, con una struttura dati del tipo:
+            - puntatore a *info relazioni*
+            - puntatore al prossimo elemento della hashtable
+    -> ranking node
+        - struttura dati, contenete:
+            - puntatore a *info nodo*
+            - puntatore al prossimo elemento della lista
+            - puntatore al precedente elemento della lista
+            - puntatore al *floor ranking*
+    -> floor ranking
+        - struttura dati, contenete:
+            - count(indica il numero degli edge entranti dei nodi del piano)
+            - flag isSorted, HINT: prelevo stringa e puntatore a ranking node e creo una lista da sortare 
+                e poi ri-collego la lista
+            - puntatore al next *floor ranking*
+            - puntatore al prev *floor ranking*
+            - puntatore a *container floor's ranking*
+            - lista di *ranking node*
+    -> container floor's ranking 
+        - struttura dati, contenente:
+            - nome relazione stringa
+            - puntatore al max *floor ranking*
+            - puntatore al min *floor ranking*
+            - puntatore al *docker ranking*
+    -> docker ranking
+        - puntatore a *container floor's ranking*
+        - puntatore al prossimo elemento della lista
+        - puntatore al precedente elemento della lista
+    -> flag isDockerSorted
  */
 typedef struct info_entity
 {
-    // todo Fare merge con info menager
     char *entity_name;
     struct container_relation *container_relation_head_p;
 } info_entity_t;
@@ -26,6 +80,8 @@ typedef struct container_relation
 } container_relation_t;
 typedef struct info_relation
 {
+    char *src;
+    char *dest;
     struct container_relation *src_container_relation_p;
     struct container_relation *dest_container_relation_p;
     struct info_relation *src_next_p;
@@ -36,21 +92,19 @@ typedef struct info_relation
 
 typedef struct info_entity_menager
 {
-    struct info_entity *entity_p; // unire all'entita
+    struct info_entity *entity_p;
     struct info_entity_menager *next_p;
 } info_entity_menager_t;
-
 typedef struct ranking_node
 {
-    struct info_entity *entity_p; //direttamente alla stringa
+    struct info_entity *entity_p;
     struct ranking_node *next_p;
     struct ranking_node *prev_p;
     struct floor_ranking *floor_ranking_p;
 } ranking_node_t;
-
 typedef struct floor_ranking
 {
-    unsigned int count;
+    unsigned long int count;
     char flag;
     struct floor_ranking *next_p;
     struct floor_ranking *prev_p;
@@ -59,7 +113,7 @@ typedef struct floor_ranking
 } floor_ranking_t;
 typedef struct container_floor_ranking
 {
-    struct floor_ranking *max_floor_ranking_p; //incorporare con docker
+    struct floor_ranking *max_floor_ranking_p;
     struct floor_ranking *min_floor_ranking_p;
     struct docker_ranking *docker_ranking_p;
 } container_floor_ranking_t;
@@ -70,7 +124,6 @@ typedef struct docker_ranking
     struct docker_ranking *next_p;
     struct docker_ranking *prev_p;
 } docker_ranking_t;
-
 docker_ranking_t *docker_search(char *str, docker_ranking_t *docker_ranking_head_p);
 void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[]);
 void ranking_node_scala(container_relation_t *target_cr, int move);
@@ -116,6 +169,7 @@ void sys_call_add_entity(char *str, info_entity_menager_t *hashtable[])
     info_entity_menager_t *entity_iem = hashtable[entity_hash];
 
     /* 2) Verifica esisteza entità nella Hashtable entità */
+
     while (entity_iem != NULL && strcmp(str, (entity_iem->entity_p)->entity_name) != 0)
         entity_iem = entity_iem->next_p;
 
@@ -860,7 +914,7 @@ docker_ranking_t *add_relation(info_entity_t *src_ie, info_entity_t *dest_ie, ch
     if (temp_cr->ranking_node_p == NULL)
     {
         ranking_node_t *rn_to_add = malloc(sizeof(ranking_node_t));
-        rn_to_add->entity_p = dest_ie; //todo delete punt
+        rn_to_add->entity_p = dest_ie;
         temp_cr->ranking_node_p = rn_to_add;
         sys_create_ranking_node(rn_to_add, target_docker->container_floor_ranking_p);
     }
@@ -1009,7 +1063,7 @@ void sys_call_print_docker(docker_ranking_t *docker_head)
             printf("    Count: %lu\n    Status: %c\n    Prev floor: %p\n    Next floor: %p\n    Entity:\n", temp_fr->count, temp_fr->flag, temp_fr->prev_p, temp_fr->next_p);
             while (temp_rn != NULL)
             {
-                //printf("        %s\n", (temp_rn->entity_p)->entity_name);
+                printf("        %s\n", (temp_rn->entity_p)->entity_name);
                 temp_rn = temp_rn->next_p;
             }
             temp_fr = temp_fr->prev_p;
@@ -1240,7 +1294,8 @@ int main()
 {
     info_entity_menager_t *entity_hashtable[modulo] = {NULL};
     docker_ranking_t *docker_head = NULL;
-    char input[128] = "addrel", input2[128], input3[128];
+    char input[512] = "addrel", input2[512], input3[512];
+    int i = 1;
     while (input[0] != 'e')
     {
         scanf("%s", input);
@@ -1253,7 +1308,7 @@ int main()
                     if (input[3] == 'r')
                         docker_head = sys_call_add_relation(input, input2, input3, entity_hashtable, docker_head); // V Refactor 1.0
                     else
-                        sys_call_add_entity(input, entity_hashtable); // V Refactor 1.0
+                        sys_call_add_entity(input, entity_hashtable); // V Refactor 1.0 || Logica 1.0
                 }
                 else
                 {
@@ -1269,6 +1324,7 @@ int main()
                 //sys_call_print_docker(docker_head);
                 //sys_call_print_entity_hashtable(entity_hashtable);
             }
+            //printf("%d\n", i++);
             input[0] = 'r';
         }
     }
