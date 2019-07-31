@@ -2,74 +2,25 @@
 #include <string.h>
 #include <stdlib.h>
 #define modulo 10007
+/* ======================================
+    PROGETTO API 2019
+====================================== */
 
 /*
-    PROGETTO DI API
-    NOTA: non esiste il delete di una relazione ma solo di nodi e edge
-
-    ToDo List:
-        - organizzazione info nodi
-        - organizzazione info relazioni(edges)
-    -> info nodi:
-        - salvati in strutture dati, contenenti:
-            - stringa nome, dinamica in base alla lunghezza della stringa
-            - lista di *relazioni container*
-    -> gestione nodi:
-        - salvati in una hashtable, con una struttura dati del tipo:
-            - puntatore a *info nodi*
-            - puntatore al prossimo elemento della hashtable
-    -> relazioni container:
-        - struttura dati, contenente:
-            - tipo relazione stringa
-            - relazioni out(lista di *info relazioni*)
-            - relazioni in(lista di *info relazioni*)
-            - puntatore a *ranking node*
-            - puntatore al prossimo 
-    -> info relazioni:
-        - struttura dati, contentente:
-            - sorgente stringa
-            - next *info relazioni* sorgente
-            - destinazione stringa
-            - next *info relazioni* destinazione
-    -> gestione edge:
-        - salvati in una hashtable, una per tipo relazione, con una struttura dati del tipo:
-            - puntatore a *info relazioni*
-            - puntatore al prossimo elemento della hashtable
-    -> ranking node
-        - struttura dati, contenete:
-            - puntatore a *info nodo*
-            - puntatore al prossimo elemento della lista
-            - puntatore al precedente elemento della lista
-            - puntatore al *floor ranking*
-    -> floor ranking
-        - struttura dati, contenete:
-            - count(indica il numero degli edge entranti dei nodi del piano)
-            - flag isSorted, HINT: prelevo stringa e puntatore a ranking node e creo una lista da sortare 
-                e poi ri-collego la lista
-            - puntatore al next *floor ranking*
-            - puntatore al prev *floor ranking*
-            - puntatore a *container floor's ranking*
-            - lista di *ranking node*
-    -> container floor's ranking 
-        - struttura dati, contenente:
-            - nome relazione stringa
-            - puntatore al max *floor ranking*
-            - puntatore al min *floor ranking*
-            - puntatore al *docker ranking*
-    -> docker ranking
-        - puntatore a *container floor's ranking*
-        - puntatore al prossimo elemento della lista
-        - puntatore al precedente elemento della lista
-    -> flag isDockerSorted
- */
+    Salva le informazioni dell'entità e fa da lista alla hashtable entity.
+*/
 typedef struct info_entity
 {
     char *entity_name;
+    struct info_entity *next_p;
     struct container_relation *container_relation_head_p;
 } info_entity_t;
+
+/*
+    Salva le informazioni delle relazioni di una particolare relazione per una particolare entità.
+*/
 typedef struct container_relation
 {
-    //serve un puntatore al docker?
     char *rel_name;
     struct info_relation *out_relation_list_head_p;
     struct info_relation *in_relation_list_head_p;
@@ -78,9 +29,12 @@ typedef struct container_relation
     struct container_relation *prev_p;
     struct ranking_node *ranking_node_p;
 } container_relation_t;
+
+/*
+    Salva le informazioni di una relazione tra 2 entità.
+*/
 typedef struct info_relation
 {
-    char *src;
     char *dest;
     struct container_relation *src_container_relation_p;
     struct container_relation *dest_container_relation_p;
@@ -90,42 +44,61 @@ typedef struct info_relation
     struct info_relation *dest_prev_p;
 } info_relation_t;
 
-typedef struct info_entity_menager
-{
-    struct info_entity *entity_p;
-    struct info_entity_menager *next_p;
-} info_entity_menager_t;
+/*
+    Salva le informazioni per il ranking.
+*/
 typedef struct ranking_node
 {
-    struct info_entity *entity_p;
+    char *entity_name_p;
     struct ranking_node *next_p;
     struct ranking_node *prev_p;
     struct floor_ranking *floor_ranking_p;
 } ranking_node_t;
+/*
+    Salva le informazioni di un piano per tipo di relazione.
+ */
 typedef struct floor_ranking
 {
-    unsigned long int count;
+    unsigned int count;
     char flag;
     struct floor_ranking *next_p;
     struct floor_ranking *prev_p;
     struct ranking_node *ranking_node_head_p;
-    struct container_floor_ranking *container_floor_ranking_p;
+    struct docker_ranking *docker_ranking_p;
 } floor_ranking_t;
+/*
+    DEPRECATED
+ */
 typedef struct container_floor_ranking
 {
     struct floor_ranking *max_floor_ranking_p;
     struct floor_ranking *min_floor_ranking_p;
     struct docker_ranking *docker_ranking_p;
 } container_floor_ranking_t;
+/*
+    Salva le informazioni di un tipo di relazione in modo globale
+*/
 typedef struct docker_ranking
 {
     char *rel_name;
-    struct container_floor_ranking *container_floor_ranking_p;
+    struct floor_ranking *max_floor_ranking_p;
+    struct floor_ranking *min_floor_ranking_p;
     struct docker_ranking *next_p;
     struct docker_ranking *prev_p;
 } docker_ranking_t;
+typedef struct divide_conquare_docker_sort
+{
+    struct docker_ranking *record;
+    struct divide_conquare_docker_sort *next_p;
+} dc_docker_node_t;
+typedef struct divide_conquare_ranking_node_sort
+{
+    struct ranking_node *record;
+    struct divide_conquare_ranking_node_sort *next_p;
+} dc_ranking_node_t;
+
 docker_ranking_t *docker_search(char *str, docker_ranking_t *docker_ranking_head_p);
-void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[]);
+//void sys_call_print_entity_hashtable(info_entity_t *hashtable[]);
 void ranking_node_scala(container_relation_t *target_cr, int move);
 void delete_ranking_node(ranking_node_t *target);
 docker_ranking_t *delete_docker(docker_ranking_t *docker_curr_head, docker_ranking_t *target_to_delete);
@@ -149,7 +122,7 @@ unsigned long int hash(char *str)
     - puntatore costante per prendere l'input
     - puntatore ad hashtable nodi
 */
-void sys_call_add_entity(char *str, info_entity_menager_t *hashtable[])
+void sys_call_add_entity(char *str, info_entity_t *hashtable[])
 {
     /* ========================
         Tasks: 
@@ -166,23 +139,23 @@ void sys_call_add_entity(char *str, info_entity_menager_t *hashtable[])
     scanf("%s", str);
     // Calcolo Hashvalue dell'entità
     int entity_hash = hash(str) % modulo;
-    info_entity_menager_t *entity_iem = hashtable[entity_hash];
+    info_entity_t *entity_iem = hashtable[entity_hash];
 
     /* 2) Verifica esisteza entità nella Hashtable entità */
 
-    while (entity_iem != NULL && strcmp(str, (entity_iem->entity_p)->entity_name) != 0)
+    while (entity_iem != NULL && strcmp(str, entity_iem->entity_name) != 0)
         entity_iem = entity_iem->next_p;
 
     if (entity_iem == NULL)
     {
         /* 2.2) Non Esiste, aggiungo l'entità */
-        entity_iem = malloc(sizeof(info_entity_menager_t));
-        entity_iem->entity_p = malloc(sizeof(info_entity_t));
-        (entity_iem->entity_p)->entity_name = malloc(sizeof(char) * (strlen(str) + 1));
+        entity_iem = malloc(sizeof(info_entity_t));
+        entity_iem->entity_name = malloc(sizeof(char) * (strlen(str) + 1));
         entity_iem->next_p = hashtable[entity_hash];
+
         hashtable[entity_hash] = entity_iem;
-        (entity_iem->entity_p)->container_relation_head_p = NULL;
-        strcpy((entity_iem->entity_p)->entity_name, str);
+        entity_iem->container_relation_head_p = NULL;
+        strcpy(entity_iem->entity_name, str);
     }
 
     /* ======================== FINE REFACTOR ======================== */
@@ -190,6 +163,7 @@ void sys_call_add_entity(char *str, info_entity_menager_t *hashtable[])
 /*
     Funzione Gestita per stampare i dati dei nodiin hashtable
 */
+/* 
 void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[])
 {
     int i = 0;
@@ -201,11 +175,7 @@ void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[])
         while (temp_iem != NULL)
         {
             printf("Nome Entità: %s\n", temp_iem->entity_p->entity_name);
-            /* 
-            printf("Indirizzo prossimo in hashtable nodi: %p\n", temp_iem->next_p);
-            printf("Indirizzo head container relazioni: %p\n", temp_iem->entity_p->container_relation_head_p);
-            printf("Indirizzo backtrack a hashtable nodi: %p\n", temp_iem->entity_p->info_entity_menager_back_p);
-            */
+
             container_relation_t *temp_cr = temp_iem->entity_p->container_relation_head_p;
             printf("Stampo Container Relazioni:\n");
             if (temp_cr == NULL)
@@ -216,11 +186,6 @@ void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[])
                 printf("    Indirizzo prev in lista: %p\n", temp_cr->prev_p);
                 printf("    Indirizzo next in lista: %p\n", temp_cr->next_p);
                 printf("    Nome relazione: %s\n", temp_cr->rel_name);
-                /*
-                printf("Indirizzo ranking node: %p\n", temp_cr->ranking_node_p);
-                printf("Indirizzo in relation: %p\n", temp_cr->in_relation_list_head_p);
-                printf("Indirizzo out relation: %p\n", temp_cr->out_relation_list_head_p);
-                */
                 if (temp_cr->ranking_node_p != NULL)
                     printf("        Rank: %lu\n", temp_cr->ranking_node_p->floor_ranking_p->count);
                 else
@@ -246,7 +211,7 @@ void sys_call_print_entity_hashtable(info_entity_menager_t *hashtable[])
         }
         i++;
     }
-}
+}*/
 /*
     Funzione Gestita: cancella una entità e le referenze. NON deferenzia da hashtable entità.
 */
@@ -270,7 +235,7 @@ docker_ranking_t *delete_entity(info_entity_t *entity_to_delete_info, docker_ran
     /* ======================== INIZIO REFACTOR ======================== */
 
     container_relation_t *temp_cr, *target_container_to_delete = entity_to_delete_info->container_relation_head_p, *to_free_cr;
-    container_floor_ranking_t *target_floor_container_to_delete;
+    docker_ranking_t *docker_target_to_delete;
     info_relation_t *target_info_relation_to_delete;
     /* 1) Scorro i Container dell'entità */
     while (target_container_to_delete != NULL)
@@ -278,16 +243,16 @@ docker_ranking_t *delete_entity(info_entity_t *entity_to_delete_info, docker_ran
         /* 2) Per ogni Container */
 
         // Provo a cercare il Docker target
-        target_floor_container_to_delete = NULL;
+        docker_target_to_delete = NULL;
         if (target_container_to_delete->ranking_node_p != NULL)
-            target_floor_container_to_delete = ((target_container_to_delete->ranking_node_p)->floor_ranking_p)->container_floor_ranking_p;
+            docker_target_to_delete = ((target_container_to_delete->ranking_node_p)->floor_ranking_p)->docker_ranking_p;
 
         /* 2.1) Elimino le relazioni in uscita */
         target_info_relation_to_delete = target_container_to_delete->out_relation_list_head_p;
 
         // Se vi è una relazione in uscita allora sicuramente esiste il Docker, nel caso sopra avesse fallito
         if (target_info_relation_to_delete != NULL)
-            target_floor_container_to_delete = (((target_info_relation_to_delete->dest_container_relation_p)->ranking_node_p)->floor_ranking_p)->container_floor_ranking_p;
+            docker_target_to_delete = (((target_info_relation_to_delete->dest_container_relation_p)->ranking_node_p)->floor_ranking_p)->docker_ranking_p;
 
         while (target_info_relation_to_delete != NULL)
         {
@@ -340,9 +305,9 @@ docker_ranking_t *delete_entity(info_entity_t *entity_to_delete_info, docker_ran
             delete_ranking_node(target_container_to_delete->ranking_node_p);
 
         /* 2.4) "Se necessario" gestione Docker corrente del container di riferimento */
-        if (target_floor_container_to_delete->max_floor_ranking_p == NULL)
+        if (docker_target_to_delete->max_floor_ranking_p == NULL)
             // Elimino il docker
-            docker_ranking_head_p = delete_docker(docker_ranking_head_p, target_floor_container_to_delete->docker_ranking_p);
+            docker_ranking_head_p = delete_docker(docker_ranking_head_p, docker_target_to_delete);
 
         /* 2.5) Elimino info del Container */
         to_free_cr = target_container_to_delete;
@@ -358,7 +323,7 @@ docker_ranking_t *delete_entity(info_entity_t *entity_to_delete_info, docker_ran
     Funzione Gestita: legge l'entità da cancellare e la cancella gestendo tutte le relative referenze.
     Restituisce l'head del docker.
 */
-docker_ranking_t *sys_call_delete_entity(char *str, info_entity_menager_t *hashtable[], docker_ranking_t *docker_ranking_head_p)
+docker_ranking_t *sys_call_delete_entity(char *str, info_entity_t *hashtable[], docker_ranking_t *docker_ranking_head_p)
 {
     /* ===================== 
         Tasks:
@@ -374,10 +339,10 @@ docker_ranking_t *sys_call_delete_entity(char *str, info_entity_menager_t *hasht
     scanf("%s", str);
     // Inizializzo variabili
     int value = hash(str) % modulo;
-    info_entity_menager_t *temp_iem = hashtable[value], *prev_iem = NULL;
+    info_entity_t *temp_iem = hashtable[value], *prev_iem = NULL;
 
     /* 2) Ricerca esistenza entità da eliminare */
-    while (temp_iem != NULL && strcmp(str, (temp_iem->entity_p)->entity_name) != 0)
+    while (temp_iem != NULL && strcmp(str, temp_iem->entity_name) != 0)
     {
         prev_iem = temp_iem;
         temp_iem = temp_iem->next_p;
@@ -391,8 +356,9 @@ docker_ranking_t *sys_call_delete_entity(char *str, info_entity_menager_t *hasht
             prev_iem->next_p = temp_iem->next_p;
         else
             hashtable[value] = temp_iem->next_p;
-        docker_ranking_head_p = delete_entity(temp_iem->entity_p, docker_ranking_head_p);
-        free(temp_iem);
+
+        // Elimino l'entità
+        docker_ranking_head_p = delete_entity(temp_iem, docker_ranking_head_p);
     }
     return docker_ranking_head_p;
     /* ===================== FINE REFACTOR ===================== */
@@ -404,7 +370,7 @@ docker_ranking_t *sys_call_delete_entity(char *str, info_entity_menager_t *hasht
     - rel_str : nome della relazione da tracciare per l'entità
     - docker_ranking_head_p : puntatore all'head dei docker
  */
-void sys_create_ranking_node(ranking_node_t *rn_to_add, container_floor_ranking_t *container_floor_ranking_p)
+void sys_create_ranking_node(ranking_node_t *rn_to_add, docker_ranking_t *docker_ranking_p)
 {
     /* ========================= 
         Task:
@@ -413,7 +379,7 @@ void sys_create_ranking_node(ranking_node_t *rn_to_add, container_floor_ranking_
     ========================= */
 
     /* ========================= INIZIO REFACTOR ========================= */
-    floor_ranking_t *temp_fr = container_floor_ranking_p->min_floor_ranking_p, *new_fr;
+    floor_ranking_t *temp_fr = docker_ranking_p->min_floor_ranking_p, *new_fr;
     rn_to_add->prev_p = NULL;
     /* 1) Aggiungo in coda il ranking-node */
     if (temp_fr == NULL || temp_fr->count != 1)
@@ -422,7 +388,7 @@ void sys_create_ranking_node(ranking_node_t *rn_to_add, container_floor_ranking_
         new_fr = malloc(sizeof(floor_ranking_t));
         new_fr->count = 1;
         new_fr->flag = 's';
-        new_fr->container_floor_ranking_p = container_floor_ranking_p;
+        new_fr->docker_ranking_p = docker_ranking_p;
         new_fr->prev_p = NULL;
         new_fr->ranking_node_head_p = rn_to_add;
         new_fr->next_p = temp_fr;
@@ -430,9 +396,9 @@ void sys_create_ranking_node(ranking_node_t *rn_to_add, container_floor_ranking_
         rn_to_add->floor_ranking_p = new_fr;
         if (temp_fr != NULL)
             temp_fr->prev_p = new_fr;
-        container_floor_ranking_p->min_floor_ranking_p = new_fr;
-        if (container_floor_ranking_p->max_floor_ranking_p == NULL)
-            container_floor_ranking_p->max_floor_ranking_p = new_fr;
+        docker_ranking_p->min_floor_ranking_p = new_fr;
+        if (docker_ranking_p->max_floor_ranking_p == NULL)
+            docker_ranking_p->max_floor_ranking_p = new_fr;
     }
     else
     {
@@ -482,12 +448,12 @@ void delete_ranking_node(ranking_node_t *target_ranking_node)
         if (target_container_floor->prev_p != NULL)
             (target_container_floor->prev_p)->next_p = target_container_floor->next_p;
         else
-            (target_container_floor->container_floor_ranking_p)->min_floor_ranking_p = target_container_floor->next_p;
+            (target_container_floor->docker_ranking_p)->min_floor_ranking_p = target_container_floor->next_p;
 
         if (target_container_floor->next_p != NULL)
             (target_container_floor->next_p)->prev_p = target_container_floor->prev_p;
         else
-            (target_container_floor->container_floor_ranking_p)->max_floor_ranking_p = target_container_floor->prev_p;
+            (target_container_floor->docker_ranking_p)->max_floor_ranking_p = target_container_floor->prev_p;
 
         free(target_container_floor);
     }
@@ -561,7 +527,7 @@ void ranking_node_scala(container_relation_t *target_cr, int move)
             to_move_ranking_node->next_p = NULL;
             temp_fr = malloc(sizeof(floor_ranking_t));
             temp_fr->count = last_fr->count + 1;
-            temp_fr->container_floor_ranking_p = last_fr->container_floor_ranking_p;
+            temp_fr->docker_ranking_p = last_fr->docker_ranking_p;
             temp_fr->ranking_node_head_p = to_move_ranking_node;
             temp_fr->flag = 's';
             to_move_ranking_node->floor_ranking_p = temp_fr;
@@ -571,7 +537,7 @@ void ranking_node_scala(container_relation_t *target_cr, int move)
             if (temp_fr->next_p != NULL)
                 (temp_fr->next_p)->prev_p = temp_fr;
             else
-                (temp_fr->container_floor_ranking_p)->max_floor_ranking_p = temp_fr;
+                (temp_fr->docker_ranking_p)->max_floor_ranking_p = temp_fr;
         }
 
         /* 1.2) Gestione last floor */
@@ -581,7 +547,7 @@ void ranking_node_scala(container_relation_t *target_cr, int move)
             if (last_fr->prev_p != NULL)
                 (last_fr->prev_p)->next_p = last_fr->next_p;
             else
-                (last_fr->container_floor_ranking_p)->min_floor_ranking_p = last_fr->next_p;
+                (last_fr->docker_ranking_p)->min_floor_ranking_p = last_fr->next_p;
 
             (last_fr->next_p)->prev_p = last_fr->prev_p;
             free(last_fr);
@@ -613,14 +579,14 @@ void ranking_node_scala(container_relation_t *target_cr, int move)
                 temp_fr->ranking_node_head_p = to_move_ranking_node;
                 temp_fr->count = last_fr->count - 1;
                 temp_fr->flag = 's';
-                temp_fr->container_floor_ranking_p = last_fr->container_floor_ranking_p;
+                temp_fr->docker_ranking_p = last_fr->docker_ranking_p;
                 temp_fr->prev_p = last_fr->prev_p;
                 temp_fr->next_p = last_fr;
                 last_fr->prev_p = temp_fr;
                 if (temp_fr->prev_p != NULL)
                     (temp_fr->prev_p)->next_p = temp_fr;
                 else
-                    (temp_fr->container_floor_ranking_p)->min_floor_ranking_p = temp_fr;
+                    (temp_fr->docker_ranking_p)->min_floor_ranking_p = temp_fr;
             }
             else
             {
@@ -638,12 +604,12 @@ void ranking_node_scala(container_relation_t *target_cr, int move)
             if (last_fr->next_p != NULL)
                 (last_fr->next_p)->prev_p = last_fr->prev_p;
             else
-                (last_fr->container_floor_ranking_p)->max_floor_ranking_p = last_fr->prev_p;
+                (last_fr->docker_ranking_p)->max_floor_ranking_p = last_fr->prev_p;
 
             if (last_fr->prev_p != NULL)
                 (last_fr->prev_p)->next_p = last_fr->next_p;
             else
-                (last_fr->container_floor_ranking_p)->min_floor_ranking_p = last_fr->next_p;
+                (last_fr->docker_ranking_p)->min_floor_ranking_p = last_fr->next_p;
 
             free(last_fr);
         }
@@ -741,14 +707,13 @@ docker_ranking_t *delete_docker(docker_ranking_t *docker_curr_head, docker_ranki
 
     /* 3) Libero il Docker */
     free(target_to_delete->rel_name);
-    free(target_to_delete->container_floor_ranking_p);
     free(target_to_delete);
 
     return docker_curr_head;
 
     /* =================== FINE REFACTOR =================== */
 }
-docker_ranking_t *sys_delete_relation(char *src_str, char *dest_str, char *rel_str, docker_ranking_t *docker_ranking_head_p, info_entity_menager_t *hashtable[])
+docker_ranking_t *sys_delete_relation(char *src_str, char *dest_str, char *rel_str, docker_ranking_t *docker_ranking_head_p, info_entity_t *hashtable[])
 {
     /* ========================= 
         Tasks:
@@ -767,29 +732,28 @@ docker_ranking_t *sys_delete_relation(char *src_str, char *dest_str, char *rel_s
     scanf("%s %s %s", src_str, dest_str, rel_str);
 
     int src_hash_value = hash(src_str) % modulo, dest_hash_value = hash(dest_str) % modulo;
-    info_entity_menager_t *src_iem = hashtable[src_hash_value];
+    info_entity_t *src_iem = hashtable[src_hash_value];
     container_relation_t *temp_cr;
     info_relation_t *temp_ir;
-    container_floor_ranking_t *target_container_floor;
+    docker_ranking_t *docker_ranking_target_p;
 
     /* 2) Verifica esistenza sorgente */
 
     if (src_iem != NULL && hashtable[dest_hash_value] != NULL)
     {
-        while (src_iem != NULL && strcmp(src_str, (src_iem->entity_p)->entity_name) != 0)
+        while (src_iem != NULL && strcmp(src_str, src_iem->entity_name) != 0)
             src_iem = src_iem->next_p;
         if (src_iem != NULL)
         {
             /* 3) Verifica esistenza relazione */
-            temp_cr = (src_iem->entity_p)->container_relation_head_p;
+            temp_cr = src_iem->container_relation_head_p;
             while (temp_cr != NULL && strcmp(rel_str, temp_cr->rel_name) != 0)
                 temp_cr = temp_cr->next_p;
 
             if (temp_cr != NULL)
             {
                 temp_ir = temp_cr->out_relation_list_head_p;
-                //todo ottimizzare strcmp
-                while (temp_ir != NULL && strcmp(dest_str, ((temp_ir->dest_container_relation_p)->entity_p)->entity_name) != 0)
+                while (temp_ir != NULL && strcmp(dest_str, temp_ir->dest) != 0)
                     temp_ir = temp_ir->src_next_p;
                 if (temp_ir != NULL)
                 {
@@ -797,7 +761,7 @@ docker_ranking_t *sys_delete_relation(char *src_str, char *dest_str, char *rel_s
                     // Deferenzio la relazione
                     deferece_relation(temp_ir);
 
-                    target_container_floor = (((temp_ir->dest_container_relation_p)->ranking_node_p)->floor_ranking_p)->container_floor_ranking_p;
+                    docker_ranking_target_p = (((temp_ir->dest_container_relation_p)->ranking_node_p)->floor_ranking_p)->docker_ranking_p;
 
                     // Gestione ranking node dell'entità destinazione
                     ranking_node_scala(temp_ir->dest_container_relation_p, 0);
@@ -810,9 +774,9 @@ docker_ranking_t *sys_delete_relation(char *src_str, char *dest_str, char *rel_s
                         // Container relazioni dell'entità sorgente vuota
                         delete_container(temp_ir->src_container_relation_p);
                     // Controllo stato Docker
-                    if (target_container_floor->max_floor_ranking_p == NULL)
+                    if (docker_ranking_target_p->max_floor_ranking_p == NULL)
                         // Elimino il Docker e Aggiorno se necessario l'Head
-                        docker_ranking_head_p = delete_docker(docker_ranking_head_p, target_container_floor->docker_ranking_p);
+                        docker_ranking_head_p = delete_docker(docker_ranking_head_p, docker_ranking_target_p);
                     free(temp_ir);
                 }
             }
@@ -858,12 +822,10 @@ docker_ranking_t *add_relation(info_entity_t *src_ie, info_entity_t *dest_ie, ch
         /* 1.2) Non Esiste, creo il docker */
 
         target_docker = malloc(sizeof(docker_ranking_t));
-        target_docker->container_floor_ranking_p = malloc(sizeof(container_floor_ranking_t));
         target_docker->rel_name = malloc(sizeof(char) * (strlen(rel_str) + 1));
         strcpy(target_docker->rel_name, rel_str);
-        (target_docker->container_floor_ranking_p)->docker_ranking_p = target_docker;
-        (target_docker->container_floor_ranking_p)->max_floor_ranking_p = NULL;
-        (target_docker->container_floor_ranking_p)->min_floor_ranking_p = NULL;
+        target_docker->max_floor_ranking_p = NULL;
+        target_docker->min_floor_ranking_p = NULL;
         target_docker->next_p = docker_ranking_head_p;
         target_docker->prev_p = NULL;
         if (docker_ranking_head_p != NULL)
@@ -875,6 +837,7 @@ docker_ranking_t *add_relation(info_entity_t *src_ie, info_entity_t *dest_ie, ch
     info_relation_t *to_add_info_relation = malloc(sizeof(info_relation_t));
     to_add_info_relation->dest_prev_p = NULL;
     to_add_info_relation->src_prev_p = NULL;
+    to_add_info_relation->dest = dest_ie->entity_name;
 
     /* 2) Cerco tra i container dell'entità destinazione se vi è o no quello della relazione in questione */
 
@@ -914,9 +877,9 @@ docker_ranking_t *add_relation(info_entity_t *src_ie, info_entity_t *dest_ie, ch
     if (temp_cr->ranking_node_p == NULL)
     {
         ranking_node_t *rn_to_add = malloc(sizeof(ranking_node_t));
-        rn_to_add->entity_p = dest_ie;
+        rn_to_add->entity_name_p = dest_ie->entity_name;
         temp_cr->ranking_node_p = rn_to_add;
-        sys_create_ranking_node(rn_to_add, target_docker->container_floor_ranking_p);
+        sys_create_ranking_node(rn_to_add, target_docker);
     }
     else
         ranking_node_scala(temp_cr, 1);
@@ -957,7 +920,7 @@ docker_ranking_t *add_relation(info_entity_t *src_ie, info_entity_t *dest_ie, ch
     return docker_ranking_head_p;
     /* ========================== FINE REFACTOR ========================== */
 }
-docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel_str, info_entity_menager_t *hashtable[], docker_ranking_t *docker_ranking_head_p)
+docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel_str, info_entity_t *hashtable[], docker_ranking_t *docker_ranking_head_p)
 {
     /* =====================
         Tasks:
@@ -980,20 +943,21 @@ docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel
     int dest_hash_value = hash(dest_str) % modulo;
 
     // Accedo alla list nella Hashtable entità
-    info_entity_menager_t *src_iem = hashtable[src_hash_value], *dest_iem = hashtable[dest_hash_value];
+    info_entity_t *src_iem = hashtable[src_hash_value], *dest_iem = hashtable[dest_hash_value];
 
     /* 2) Ricerca esistenza entità */
     /* 2.1) Entità Sorgente */
     // Cerco entità sorgente
-    while (src_iem != NULL && strcmp(src_str, (src_iem->entity_p)->entity_name) != 0)
+    while (src_iem != NULL && strcmp(src_str, src_iem->entity_name) != 0)
         src_iem = src_iem->next_p;
+
     if (src_iem != NULL)
     {
         // Esiste l'entità sorgente quindi procedo alla ricerca dell'entità destinazione
 
         /* 2.2) Entità Destinazione */
         // Cerco entità destinazione
-        while (dest_iem != NULL && strcmp(dest_str, (dest_iem->entity_p)->entity_name) != 0)
+        while (dest_iem != NULL && strcmp(dest_str, dest_iem->entity_name) != 0)
             dest_iem = dest_iem->next_p;
 
         if (dest_iem != NULL)
@@ -1001,31 +965,30 @@ docker_ranking_t *sys_call_add_relation(char *src_str, char *dest_str, char *rel
             // Esiste anche l'entità destinazione oltre all'entità sorgente, procedo...
 
             /* 3) Ricerca esistenza relazione */
-            container_relation_t *temp_cr = (dest_iem->entity_p)->container_relation_head_p;
+            container_relation_t *temp_cr = src_iem->container_relation_head_p;
             while (temp_cr != NULL && (strcmp(rel_str, temp_cr->rel_name) != 0))
                 temp_cr = temp_cr->next_p;
 
             if (temp_cr != NULL)
             {
                 // Esiste il container relazione nell'entità destinazione, va verificato se tra quelle in entrata vi è o no quello in aggiunta
-                info_relation_t *temp_ir = temp_cr->in_relation_list_head_p;
-                //todo forse poco efficiente "strcmp"
+                info_relation_t *temp_ir = temp_cr->out_relation_list_head_p;
                 // Cerco relazione nel container dell'entità sorgente
-                while (temp_ir != NULL && strcmp(src_str, ((temp_ir->src_container_relation_p)->entity_p)->entity_name) != 0)
-                    temp_ir = temp_ir->dest_next_p;
+                while (temp_ir != NULL && strcmp(dest_str, temp_ir->dest) != 0)
+                    temp_ir = temp_ir->src_next_p;
 
                 if (temp_ir == NULL)
                 {
                     // Non esiste la relazione, aggiungo la relazione
                     // Nota: restituisco docker aggiornato
-                    docker_ranking_head_p = add_relation(src_iem->entity_p, dest_iem->entity_p, rel_str, docker_ranking_head_p);
+                    docker_ranking_head_p = add_relation(src_iem, dest_iem, rel_str, docker_ranking_head_p);
                 }
             }
             else
             {
                 // Non esiste il container relazione nell'entità sorgente, aggiungo la relazione
                 // Nota: restituisco docker aggiornato
-                docker_ranking_head_p = add_relation(src_iem->entity_p, dest_iem->entity_p, rel_str, docker_ranking_head_p);
+                docker_ranking_head_p = add_relation(src_iem, dest_iem, rel_str, docker_ranking_head_p);
             }
         }
     }
@@ -1044,7 +1007,7 @@ docker_ranking_t *docker_search(char *str, docker_ranking_t *docker_ranking_head
     while (docker_ranking_head_p != NULL && strcmp(str, docker_ranking_head_p->rel_name) != 0)
         docker_ranking_head_p = docker_ranking_head_p->next_p;
     return docker_ranking_head_p;
-}
+} /* 
 void sys_call_print_docker(docker_ranking_t *docker_head)
 {
     floor_ranking_t *temp_fr;
@@ -1071,7 +1034,7 @@ void sys_call_print_docker(docker_ranking_t *docker_head)
 
         docker_head = docker_head->next_p;
     }
-}
+}*/
 
 /*
     Funzione che compara 2 stringhe, restituisce:
@@ -1101,182 +1064,229 @@ int str_compare_order(char *str1, char *str2)
     else
         return 0;
 }
-void docker_max_to_sort(container_floor_ranking_t *docker_to_sort)
+docker_ranking_t *docker_sort(docker_ranking_t *docker_head)
 {
-    ranking_node_t *head_rn = (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p, *compare_rn, *next_rn;
-    (docker_to_sort->max_floor_ranking_p)->flag = 's';
-    int change = 1;
-    while (change != 0)
+    /* =======================
+        Tasks:
+            1) Taglio la lista
+            2) Unisco le liste con un confronto
+    ======================= */
+
+    /* ======================= INIZIO REFACTOR ======================= */
+    dc_docker_node_t *dc_head = NULL, *dc_curr, *dc_last;
+    docker_ranking_t *first_docker, *second_docker, *sorted_docker, *start_cut_docker;
+
+    /* 1) Taglio la lista */
+    while (docker_head != NULL)
     {
-        head_rn = (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p;
-        change = 0;
-        while (head_rn != NULL)
+        // Inizio lista
+        dc_curr = malloc(sizeof(dc_docker_node_t));
+        dc_curr->next_p = dc_head;
+        dc_curr->record = docker_head;
+        dc_head = dc_curr;
+        docker_head->prev_p = NULL;
+        // Cerco fine lista ovvero quando esce dal loop
+        while (docker_head->next_p != NULL && str_compare_order(docker_head->rel_name, (docker_head->next_p)->rel_name) == 0)
+            docker_head = docker_head->next_p;
+        // In docker head ho la fine
+        first_docker = docker_head;
+        docker_head = docker_head->next_p;
+        first_docker->next_p = NULL;
+    }
+    first_docker = NULL;
+    /* 2) Unisco le liste con un confronto */
+    if (dc_head != NULL)
+    {
+        // Esiste una lista da ordinare
+        while (dc_head->next_p != NULL)
         {
-            next_rn = head_rn->next_p;
-            compare_rn = next_rn;
-            if (compare_rn != NULL)
+            dc_curr = dc_head;
+            while (dc_curr != NULL && dc_curr->next_p != NULL)
             {
-                while (compare_rn->next_p != NULL && str_compare_order((head_rn->entity_p)->entity_name, (compare_rn->entity_p)->entity_name) == 1)
-                    compare_rn = compare_rn->next_p;
-                if (compare_rn->next_p != NULL)
+                // Preparativi
+                dc_last = dc_curr->next_p;
+                first_docker = dc_curr->record;
+                second_docker = dc_last->record;
+                sorted_docker = NULL;
+
+                // Unisco
+                while (first_docker != NULL && second_docker != NULL)
                 {
-                    if (head_rn->next_p != compare_rn)
+                    if (str_compare_order(first_docker->rel_name, second_docker->rel_name) == 0)
                     {
-                        //Deferenzio il rn-node
-                        (head_rn->next_p)->prev_p = head_rn->prev_p;
-                        if (head_rn->prev_p != NULL)
-                            (head_rn->prev_p)->next_p = head_rn->next_p;
-                        else
-                            (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
-                        //referenzio il rn-node
-                        (compare_rn->prev_p)->next_p = head_rn;
-                        head_rn->prev_p = compare_rn->prev_p;
-                        compare_rn->prev_p = head_rn;
-                        head_rn->next_p = compare_rn;
-                        change++;
+                        first_docker->prev_p = sorted_docker;
+                        if (sorted_docker != NULL)
+                            sorted_docker->next_p = first_docker;
+                        sorted_docker = first_docker;
+                        first_docker = first_docker->next_p;
                     }
+                    else
+                    {
+                        second_docker->prev_p = sorted_docker;
+                        if (sorted_docker != NULL)
+                            sorted_docker->next_p = second_docker;
+                        sorted_docker = second_docker;
+                        second_docker = second_docker->next_p;
+                    }
+                }
+
+                // Concateno
+                if (first_docker != NULL)
+                {
+                    first_docker->prev_p = sorted_docker;
+                    if (sorted_docker != NULL)
+                        sorted_docker->next_p = first_docker;
                 }
                 else
                 {
-                    if (str_compare_order((head_rn->entity_p)->entity_name, (compare_rn->entity_p)->entity_name) == 1)
+                    second_docker->prev_p = sorted_docker;
+                    if (sorted_docker != NULL)
+                        sorted_docker->next_p = second_docker;
+                }
+
+                // Setto il nuovo head
+                if ((dc_last->record)->prev_p == NULL)
+                    dc_curr->record = dc_last->record;
+                dc_curr->next_p = dc_last->next_p;
+                dc_curr = dc_last->next_p;
+                free(dc_last);
+            }
+        }
+        first_docker = dc_head->record;
+        free(dc_head);
+    }
+    return first_docker;
+    /* ======================= FINE REFACTOR ======================= */
+}
+ranking_node_t *ranking_node_sort(ranking_node_t *ranking_node_head)
+{
+    /* =======================
+        Tasks:
+            1) Taglio la lista
+            2) Unisco le liste con un confronto
+    ======================= */
+
+    /* ======================= INIZIO REFACTOR ======================= */
+    dc_ranking_node_t *dc_head = NULL, *dc_curr, *dc_last;
+    ranking_node_t *first_docker, *second_docker, *sorted_docker, *start_cut_docker;
+
+    /* 1) Taglio la lista */
+    while (ranking_node_head != NULL)
+    {
+        // Inizio lista
+        dc_curr = malloc(sizeof(dc_ranking_node_t));
+        dc_curr->next_p = dc_head;
+        dc_curr->record = ranking_node_head;
+        dc_head = dc_curr;
+        ranking_node_head->prev_p = NULL;
+        // Cerco fine lista ovvero quando esce dal loop
+        while (ranking_node_head->next_p != NULL && str_compare_order(ranking_node_head->entity_name_p, (ranking_node_head->next_p)->entity_name_p) == 0)
+            ranking_node_head = ranking_node_head->next_p;
+        // In docker head ho la fine
+        first_docker = ranking_node_head;
+        ranking_node_head = ranking_node_head->next_p;
+        first_docker->next_p = NULL;
+    }
+    first_docker = NULL;
+    /* 2) Unisco le liste con un confronto */
+    if (dc_head != NULL)
+    {
+        // Esiste una lista da ordinare
+        while (dc_head->next_p != NULL)
+        {
+            dc_curr = dc_head;
+            while (dc_curr != NULL && dc_curr->next_p != NULL)
+            {
+                // Preparativi
+                dc_last = dc_curr->next_p;
+                first_docker = dc_curr->record;
+                second_docker = dc_last->record;
+                sorted_docker = NULL;
+
+                // Unisco
+                while (first_docker != NULL && second_docker != NULL)
+                {
+                    if (str_compare_order(first_docker->entity_name_p, second_docker->entity_name_p) == 0)
                     {
-                        //Deferenzio il rn-node
-                        (head_rn->next_p)->prev_p = head_rn->prev_p;
-                        if (head_rn->prev_p != NULL)
-                            (head_rn->prev_p)->next_p = head_rn->next_p;
-                        else
-                            (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
-                        //referenzio il rn-node
-                        head_rn->next_p = NULL;
-                        head_rn->prev_p = compare_rn;
-                        compare_rn->next_p = head_rn;
-                        change++;
+                        first_docker->prev_p = sorted_docker;
+                        if (sorted_docker != NULL)
+                            sorted_docker->next_p = first_docker;
+                        sorted_docker = first_docker;
+                        first_docker = first_docker->next_p;
                     }
                     else
                     {
-                        if (head_rn->next_p != compare_rn)
-                        {
-                            //Deferenzio il rn-node
-                            (head_rn->next_p)->prev_p = head_rn->prev_p;
-                            if (head_rn->prev_p != NULL)
-                                (head_rn->prev_p)->next_p = head_rn->next_p;
-                            else
-                                (docker_to_sort->max_floor_ranking_p)->ranking_node_head_p = head_rn->next_p;
-                            //referenzio il rn-node
-                            (compare_rn->prev_p)->next_p = head_rn;
-                            head_rn->prev_p = compare_rn->prev_p;
-                            compare_rn->prev_p = head_rn;
-                            head_rn->next_p = compare_rn;
-                            change++;
-                        }
+                        second_docker->prev_p = sorted_docker;
+                        if (sorted_docker != NULL)
+                            sorted_docker->next_p = second_docker;
+                        sorted_docker = second_docker;
+                        second_docker = second_docker->next_p;
                     }
                 }
+
+                // Concateno
+                if (first_docker != NULL)
+                {
+                    first_docker->prev_p = sorted_docker;
+                    if (sorted_docker != NULL)
+                        sorted_docker->next_p = first_docker;
+                }
+                else
+                {
+                    second_docker->prev_p = sorted_docker;
+                    if (sorted_docker != NULL)
+                        sorted_docker->next_p = second_docker;
+                }
+
+                // Setto il nuovo head
+                if ((dc_last->record)->prev_p == NULL)
+                    dc_curr->record = dc_last->record;
+                dc_curr->next_p = dc_last->next_p;
+                dc_curr = dc_last->next_p;
+                free(dc_last);
             }
-            head_rn = next_rn;
         }
+        first_docker = dc_head->record;
+        free(dc_head);
     }
+    return first_docker;
+    /* ======================= FINE REFACTOR ======================= */
 }
 docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
 {
-    //printf("traking report\n");
-    //scorro e controllo se sono in ordine, altrimenti sposto il docker
-    docker_ranking_t *docker_head_to_res = docker_head, *sort_docker = docker_head, *temp_docker, *trapass_docker;
+    /* ======================= 
+        Tasks: 
+            1) Ordino i docker
+            2) Ordino se non ordinato i ranking node massimi
+    =======================*/
+
+    /* ======================= INIZIO REFACTOR ======================= */
+    docker_ranking_t *temp_docker;
     ranking_node_t *to_print_node;
-    if (sort_docker != NULL)
+    if (docker_head != NULL)
     {
-        //oridino i docker
-        int change = 1;
-        while (change != 0)
-        {
-            sort_docker = docker_head_to_res;
-            change = 0;
-            while (sort_docker != NULL)
-            {
-
-                temp_docker = sort_docker->next_p;
-                trapass_docker = temp_docker;
-                if (temp_docker != NULL)
-                {
-                    //se vi è un next e che è minore del prev vado avanti fino a quando una delle due è falsa
-                    while (temp_docker->next_p != NULL && str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
-                        temp_docker = temp_docker->next_p;
-                    if (temp_docker->next_p != NULL)
-                    {
-                        //docker target trovato
-                        if (temp_docker != sort_docker->next_p)
-                        {
-
-                            //deferenzio il docker da spostare
-                            (sort_docker->next_p)->prev_p = sort_docker->prev_p;
-                            if (sort_docker->prev_p != NULL)
-                                (sort_docker->prev_p)->next_p = sort_docker->next_p;
-                            else
-                                docker_head_to_res = sort_docker->next_p;
-                            //ri-referenzio il docker
-                            (temp_docker->prev_p)->next_p = sort_docker;
-                            sort_docker->prev_p = temp_docker->prev_p;
-                            temp_docker->prev_p = sort_docker;
-                            sort_docker->next_p = temp_docker;
-                            change++;
-                        }
-                    }
-                    else
-                    {
-                        //va fatto l'ultimo confronto
-                        if (str_compare_order(sort_docker->rel_name, temp_docker->rel_name) == 1)
-                        {
-                            //allora diventa ultimo
-                            (sort_docker->next_p)->prev_p = sort_docker->prev_p;
-                            if (sort_docker->prev_p != NULL)
-                                (sort_docker->prev_p)->next_p = sort_docker->next_p;
-                            else
-                                docker_head_to_res = sort_docker->next_p;
-                            sort_docker->prev_p = temp_docker;
-                            sort_docker->next_p = NULL;
-                            temp_docker->next_p = sort_docker;
-                            change++;
-                        }
-                        else
-                        {
-                            //sposto normalmente
-                            if (temp_docker != sort_docker->next_p)
-                            {
-                                //deferenzio il docker da spostare
-                                (sort_docker->next_p)->prev_p = sort_docker->prev_p;
-                                if (sort_docker->prev_p != NULL)
-                                    (sort_docker->prev_p)->next_p = sort_docker->next_p;
-                                else
-                                    docker_head_to_res = sort_docker->next_p;
-                                //ri-referenzio il docker
-                                (temp_docker->prev_p)->next_p = sort_docker;
-                                sort_docker->prev_p = temp_docker->prev_p;
-                                temp_docker->prev_p = sort_docker;
-                                sort_docker->next_p = temp_docker;
-                                change++;
-                            }
-                        }
-                    }
-                }
-                sort_docker = trapass_docker;
-            }
-        }
-        //ora ho i Docker ordinati
-
-        //scorro i docker e ordino il max list
-        // uso docker_head_to_res
-        temp_docker = docker_head_to_res;
+        /* 1) Ordino i docker */
+        docker_head = docker_sort(docker_head);
+        temp_docker = docker_head;
         while (temp_docker != NULL)
         {
+            /* 2) Ordino se non ordinato i ranking node massimi */
+            if ((temp_docker->max_floor_ranking_p)->flag == 'd')
+            {
+                (temp_docker->max_floor_ranking_p)->flag = 's';
+                (temp_docker->max_floor_ranking_p)->ranking_node_head_p = ranking_node_sort((temp_docker->max_floor_ranking_p)->ranking_node_head_p);
+            }
+            to_print_node = (temp_docker->max_floor_ranking_p)->ranking_node_head_p;
             printf("%s", temp_docker->rel_name);
-            if (((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->flag == 'd')
-                docker_max_to_sort(temp_docker->container_floor_ranking_p);
-            to_print_node = ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->ranking_node_head_p;
             while (to_print_node != NULL)
             {
-                printf(" %s", (to_print_node->entity_p)->entity_name);
-                to_print_node = to_print_node->next_p;
+                while (to_print_node != NULL)
+                {
+                    printf(" %s", to_print_node->entity_name_p);
+                    to_print_node = to_print_node->next_p;
+                }
             }
-            printf(" %lu;", ((temp_docker->container_floor_ranking_p)->max_floor_ranking_p)->count);
+            printf(" %d;", (temp_docker->max_floor_ranking_p)->count);
             temp_docker = temp_docker->next_p;
             if (temp_docker != NULL)
                 printf(" ");
@@ -1287,15 +1297,15 @@ docker_ranking_t *sys_call_report(docker_ranking_t *docker_head)
     {
         printf("none\n");
     }
-    //printf("traking report End\n");
-    return docker_head_to_res;
+    return docker_head;
+
+    /* ======================= FINE REFACTOR ======================= */
 }
 int main()
 {
-    info_entity_menager_t *entity_hashtable[modulo] = {NULL};
+    info_entity_t *entity_hashtable[modulo] = {NULL};
     docker_ranking_t *docker_head = NULL;
-    char input[512] = "addrel", input2[512], input3[512];
-    int i = 1;
+    char input[256] = "addrel", input2[256], input3[256];
     while (input[0] != 'e')
     {
         scanf("%s", input);
@@ -1306,25 +1316,24 @@ int main()
                 if (input[0] == 'a')
                 {
                     if (input[3] == 'r')
-                        docker_head = sys_call_add_relation(input, input2, input3, entity_hashtable, docker_head); // V Refactor 1.0
+                        docker_head = sys_call_add_relation(input, input2, input3, entity_hashtable, docker_head); // V Refactor 2.0 | Logica
                     else
-                        sys_call_add_entity(input, entity_hashtable); // V Refactor 1.0 || Logica 1.0
+                        sys_call_add_entity(input, entity_hashtable); // V Refactor 2.0 | Logica 1.0
                 }
                 else
                 {
                     if (input[3] == 'e')
-                        docker_head = sys_call_delete_entity(input, entity_hashtable, docker_head); // Refactor 1.0
+                        docker_head = sys_call_delete_entity(input, entity_hashtable, docker_head); // Refactor 2.0
                     else
-                        docker_head = sys_delete_relation(input, input2, input3, docker_head, entity_hashtable); // V Refactor 1.0
+                        docker_head = sys_delete_relation(input, input2, input3, docker_head, entity_hashtable); // V Refactor 2.0
                 }
             }
             else
             {
-                docker_head = sys_call_report(docker_head); // 1.0.0
+                docker_head = sys_call_report(docker_head); // Refactor 2.0
                 //sys_call_print_docker(docker_head);
                 //sys_call_print_entity_hashtable(entity_hashtable);
             }
-            //printf("%d\n", i++);
             input[0] = 'r';
         }
     }
