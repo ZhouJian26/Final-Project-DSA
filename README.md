@@ -2,6 +2,8 @@
 
 This is a school project, for the course of data structures and algorithms 2018/2019.
 
+My implementation is in the index.c file. The complete project specification can be found in the ProgettoFinale2019.pdf file. Finally, 1k.in and 1k.out are tests for the algorithm
+
 ## Description
 
 - We want to implement a mechanism for monitoring relationships between entities (for example people) that change over time
